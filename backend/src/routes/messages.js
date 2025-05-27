@@ -78,7 +78,6 @@ router.get('/history/:chatId', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
 
     try {
-        // Проверяем, является ли пользователь участником чата
         const isMember = await pool.query(
             'SELECT 1 FROM chat_members WHERE chat_id = $1 AND user_id = $2',
             [chatId, userId]
@@ -89,16 +88,29 @@ router.get('/history/:chatId', authMiddleware, async (req, res) => {
 
         const messages = await pool.query(
             `SELECT m.id, m.chat_id, m.user_id, u.username, m.content, m.created_at,
-                    mf.file_url, mf.file_type
+                    mf.file_url, mf.file_type,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'id', r.id,
+                                'user_id', r.user_id,
+                                'username', ru.username,
+                                'reaction_type', r.reaction_type,
+                                'created_at', r.created_at
+                            )
+                        ) FILTER (WHERE r.id IS NOT NULL),
+                        '[]'
+                    ) as reactions
              FROM messages m
              JOIN users u ON m.user_id = u.id
              LEFT JOIN media_files mf ON m.id = mf.message_id
+             LEFT JOIN reactions r ON m.id = r.message_id
+             LEFT JOIN users ru ON r.user_id = ru.id
              WHERE m.chat_id = $1
+             GROUP BY m.id, u.username, mf.file_url, mf.file_type
              ORDER BY m.created_at ASC`,
             [chatId]
         );
-
-        console.log('History response:', JSON.stringify(messages.rows, null, 2)); // Логируем ответ
 
         res.json(messages.rows);
     } catch (err) {
@@ -128,16 +140,89 @@ router.get('/search/:chatId', authMiddleware, async (req, res) => {
 
         const messages = await pool.query(
             `SELECT m.id, m.chat_id, m.user_id, u.username, m.content, m.created_at,
-                    mf.file_url, mf.file_type
+                    mf.file_url, mf.file_type,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'id', r.id,
+                                'user_id', r.user_id,
+                                'username', ru.username,
+                                'reaction_type', r.reaction_type,
+                                'created_at', r.created_at
+                            )
+                        ) FILTER (WHERE r.id IS NOT NULL),
+                        '[]'
+                    ) as reactions
              FROM messages m
              JOIN users u ON m.user_id = u.id
              LEFT JOIN media_files mf ON m.id = mf.message_id
+             LEFT JOIN reactions r ON m.id = r.message_id
+             LEFT JOIN users ru ON r.user_id = ru.id
              WHERE m.chat_id = $1 AND m.content ILIKE $2
+             GROUP BY m.id, u.username, mf.file_url, mf.file_type
              ORDER BY m.created_at ASC`,
             [chatId, `%${query}%`]
         );
 
         res.json(messages.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Добавление/удаление реакции
+router.post('/react', authMiddleware, async (req, res) => {
+    const { messageId, reactionType } = req.body;
+    const userId = req.user.userId;
+
+    if (!messageId || !['like', 'heart', 'dislike', 'laugh'].includes(reactionType)) {
+        return res.status(400).json({ error: 'Неверные параметры' });
+    }
+
+    try {
+        // Проверяем, есть ли уже такая реакция
+        const existingReaction = await pool.query(
+            'SELECT id FROM reactions WHERE message_id = $1 AND user_id = $2 AND reaction_type = $3',
+            [messageId, userId, reactionType]
+        );
+
+        let reaction;
+        if (existingReaction.rows.length) {
+            // Удаляем реакцию
+            reaction = await pool.query(
+                'DELETE FROM reactions WHERE id = $1 RETURNING *',
+                [existingReaction.rows[0].id]
+            );
+        } else {
+            // Добавляем реакцию
+            reaction = await pool.query(
+                'INSERT INTO reactions (message_id, user_id, reaction_type) VALUES ($1, $2, $3) RETURNING *',
+                [messageId, userId, reactionType]
+            );
+        }
+
+        // Получаем информацию о пользователе
+        const user = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
+
+        // Получаем chat_id сообщения
+        const message = await pool.query('SELECT chat_id FROM messages WHERE id = $1', [messageId]);
+
+        // Отправляем обновление через WebSocket
+        const io = req.app.get('io');
+        io.to(message.rows[0].chat_id).emit('reaction', {
+            messageId,
+            reaction: {
+                id: reaction.rows[0].id,
+                user_id: userId,
+                username: user.rows[0].username,
+                reaction_type: reactionType,
+                created_at: reaction.rows[0].created_at,
+            },
+            isAdded: !existingReaction.rows.length,
+        });
+
+        res.json({ message: existingReaction.rows.length ? 'Реакция удалена' : 'Реакция добавлена' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Ошибка сервера' });

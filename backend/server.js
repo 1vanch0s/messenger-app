@@ -76,6 +76,7 @@ io.on('connection', (socket) => {
             created_at: newMessage.rows[0].created_at,
             file_url: null,
             file_type: null,
+            reactions: [],
         });
     } catch (err) {
         console.error('Error saving message:', err);
