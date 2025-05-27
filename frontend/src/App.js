@@ -1,10 +1,18 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
 import Chat from './components/Chat';
 
 function App() {
+    const isAuthenticated = !!localStorage.getItem('token');
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        window.location.href = '/login'; // Перенаправляем на логин
+    };
+
     return (
         <Router>
             <div style={{ textAlign: 'center', padding: '20px' }}>
@@ -16,15 +24,25 @@ function App() {
                     <Link to="/register" style={{ margin: '10px' }}>
                         <button>Регистрация</button>
                     </Link>
-                    <Link to="/chat" style={{ margin: '10px' }}>
-                        <button>Чат</button>
-                    </Link>
+                    {isAuthenticated && (
+                        <>
+                            <Link to="/chat" style={{ margin: '10px' }}>
+                                <button>Чат</button>
+                            </Link>
+                            <button onClick={handleLogout} style={{ margin: '10px' }}>
+                                Выход
+                            </button>
+                        </>
+                    )}
                 </nav>
                 <Routes>
                     <Route path="/" element={<h2>Добро пожаловать! Выберите действие выше.</h2>} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
-                    <Route path="/chat" element={<Chat />} />
+                    <Route
+                        path="/chat"
+                        element={isAuthenticated ? <Chat /> : <Navigate to="/login" />}
+                    />
                 </Routes>
             </div>
         </Router>

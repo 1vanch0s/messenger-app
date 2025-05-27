@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
+import axios from 'axios';
 
 const socket = io('http://localhost:5000', {
     auth: {
-        token: localStorage.getItem('token'), // Отправляем токен для аутентификации
+        token: localStorage.getItem('token'),
     },
 });
 
 function Chat() {
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
-    const [chatId] = useState('1'); // Тестовый chatId, позже заменим на динамический
-    const userId = localStorage.getItem('userId') || '1'; // Тестовый userId
+    const [chatId] = useState('1'); // Тестовый chatId
+    const userId = localStorage.getItem('userId');
 
     useEffect(() => {
+        // Проверяем подключение
+        socket.on('connect_error', (err) => {
+            console.error('Connection error:', err.message);
+            alert('Ошибка подключения: ' + err.message);
+        });
+
         // Присоединяемся к чату
         socket.emit('joinChat', chatId);
 
@@ -24,13 +31,14 @@ function Chat() {
 
         return () => {
             socket.off('message');
+            socket.off('connect_error');
         };
     }, [chatId]);
 
     const handleSendMessage = (e) => {
         e.preventDefault();
         if (message.trim()) {
-            socket.emit('sendMessage', { chatId, userId, content: message });
+            socket.emit('sendMessage', { chatId, content: message });
             setMessage('');
         }
     };
@@ -41,7 +49,8 @@ function Chat() {
             <div style={{ border: '1px solid #ccc', padding: '10px', height: '300px', overflowY: 'scroll' }}>
                 {messages.map((msg) => (
                     <p key={msg.id}>
-                        <strong>User {msg.userId}:</strong> {msg.content} <em>({new Date(msg.created_at).toLocaleTimeString()})</em>
+                        <strong>{msg.username}:</strong> {msg.content}{' '}
+                        <em>({new Date(msg.created_at).toLocaleTimeString()})</em>
                     </p>
                 ))}
             </div>
