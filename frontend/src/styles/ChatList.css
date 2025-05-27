@@ -1,0 +1,100 @@
+/* ChatList.css */
+.chat-list {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.chat-list h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.chat-list-items {
+    list-style: none;
+    margin-bottom: 20px;
+}
+
+.chat-list-item {
+    margin-bottom: 10px;
+}
+
+.chat-link {
+    display: block;
+    padding: 10px;
+    background-color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #007bff;
+    font-size: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s;
+}
+
+.chat-link:hover {
+    background-color: #e9ecef;
+}
+
+.chat-form {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.chat-form h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.chat-input, .chat-select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.user-checkboxes {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.user-checkbox {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.user-checkbox input {
+    margin-right: 8px;
+}
+
+.chat-button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.chat-button:hover {
+    background-color: #0056b3;
+}
+
+@media (max-width: 600px) {
+    .chat-list {
+        padding: 10px;
+    }
+
+    .chat-form {
+        padding: 15px;
+    }
+}

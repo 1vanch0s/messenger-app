@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import io from 'socket.io-client';
 import axios from 'axios';
+import '../styles/Chat.css';
 
 const socket = io('http://localhost:5000', {
     auth: {
@@ -15,19 +16,18 @@ function Chat() {
     const [message, setMessage] = useState('');
     const [file, setFile] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const messagesEndRef = useRef(null);
 
     useEffect(() => {
-        // Загружаем историю сообщений
         const fetchHistory = async () => {
             try {
                 const res = await axios.get(`http://localhost:5000/api/messages/history/${chatId}`, {
                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
                 });
-                console.log('Fetched history:', res.data); // Логируем данные
                 setMessages(res.data);
             } catch (err) {
                 console.error('Error fetching history:', err);
-                alert('Ошибка загрузки истории');
+                alert('Error loading history');
             }
         };
 
@@ -35,13 +35,12 @@ function Chat() {
 
         socket.on('connect_error', (err) => {
             console.error('Connection error:', err.message);
-            alert('Ошибка подключения: ' + err.message);
+            alert('Connection error: ' + err.message);
         });
 
         socket.emit('joinChat', chatId);
 
         socket.on('message', (newMessage) => {
-            console.log('New WebSocket message:', newMessage); // Логируем сообщение
             setMessages((prev) => [...prev, newMessage]);
         });
 
@@ -50,6 +49,10 @@ function Chat() {
             socket.off('connect_error');
         };
     }, [chatId]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
@@ -77,7 +80,7 @@ function Chat() {
             setFile(null);
         } catch (err) {
             console.error('Error uploading file:', err);
-            alert('Ошибка загрузки файла');
+            alert('Error uploading file');
         }
     };
 
@@ -101,65 +104,75 @@ function Chat() {
             setMessages(res.data);
         } catch (err) {
             console.error('Error searching messages:', err);
-            alert('Ошибка поиска');
+            alert('Search error');
         }
     };
 
     return (
-        <div>
-            <h2>Чат {chatId}</h2>
-            <form onSubmit={handleSearch}>
+        <div className="chat">
+            <h2>Chat {chatId}</h2>
+            <form className="chat-search" onSubmit={handleSearch}>
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Поиск сообщений"
+                    placeholder="Search messages"
+                    className="chat-search-input"
                 />
-                <button type="submit">Найти</button>
+                <button type="submit" className="chat-search-button">Search</button>
             </form>
-            <div style={{ border: '1px solid #ccc', padding: '10px', height: '300px', overflowY: 'scroll' }}>
+            <div className="chat-messages">
                 {messages.map((msg) => (
-                    <div key={msg.id}>
-                        <strong>{msg.username}:</strong>{' '}
-                        {msg.content && msg.content.trim() && <span>{msg.content}</span>}
+                    <div key={msg.id} className="chat-message">
+                        <div className="message-header">
+                            <strong>{msg.username}</strong>
+                            <span className="message-time">
+                                {new Date(msg.created_at).toLocaleTimeString()}
+                            </span>
+                        </div>
+                        {msg.content && msg.content.trim() && (
+                            <div className="message-content">{msg.content}</div>
+                        )}
                         {msg.file_url && (
-                            <div>
+                            <div className="message-media">
                                 {msg.file_type === 'image' ? (
                                     <img
                                         src={`http://localhost:5000${msg.file_url}`}
                                         alt="media"
-                                        style={{ maxWidth: '200px', maxHeight: '200px' }}
+                                        className="media-image"
                                     />
                                 ) : (
                                     <video
                                         src={`http://localhost:5000${msg.file_url}`}
                                         controls
-                                        style={{ maxWidth: '200px', maxHeight: '200px' }}
+                                        className="media-video"
                                     />
                                 )}
                             </div>
                         )}
-                        <em>({new Date(msg.created_at).toLocaleTimeString()})</em>
                     </div>
                 ))}
+                <div ref={messagesEndRef} />
             </div>
-            <form onSubmit={handleSendMessage}>
+            <form className="chat-form" onSubmit={handleSendMessage}>
                 <input
                     type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Введите сообщение"
+                    placeholder="Type a message"
+                    className="chat-input"
                 />
-                <button type="submit">Отправить</button>
+                <button type="submit" className="chat-button">Send</button>
             </form>
-            <form onSubmit={handleFileUpload}>
+            <form className="chat-form" onSubmit={handleFileUpload}>
                 <input
                     type="file"
                     accept="image/jpeg,image/png,video/mp4"
                     onChange={(e) => setFile(e.target.files[0])}
+                    className="chat-file-input"
                 />
-                <button type="submit" disabled={!file}>
-                    Загрузить файл
+                <button type="submit" disabled={!file} className="chat-button">
+                    Upload File
                 </button>
             </form>
         </div>
