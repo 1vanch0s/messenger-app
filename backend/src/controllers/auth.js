@@ -1,3 +1,4 @@
+// backend/controllers/auth.js
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -28,13 +29,15 @@ const register = async (req, res) => {
         );
 
         // Генерируем JWT
-        const token = jwt.sign({ userId: newUser.rows[0].id }, process.env.JWT_SECRET, {
-            expiresIn: '1h',
-        });
+        const payload = { userId: newUser.rows[0].id };
+        const secret = process.env.JWT_SECRET;
+        console.log('Register: Generating JWT with payload:', payload, 'secret:', secret);
+        const token = jwt.sign(payload, secret, { expiresIn: '7d' });
+        console.log('Register: Generated JWT:', token);
 
         res.status(201).json({ user: newUser.rows[0], token });
     } catch (err) {
-        console.error(err);
+        console.error('Register error:', err.message);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 };
@@ -60,13 +63,15 @@ const login = async (req, res) => {
         }
 
         // Генерируем JWT
-        const token = jwt.sign({ userId: user.rows[0].id }, process.env.JWT_SECRET, {
-            expiresIn: '7d',
-        });
+        const payload = { userId: user.rows[0].id };
+        const secret = process.env.JWT_SECRET;
+        console.log('Login: Generating JWT with payload:', payload, 'secret:', secret);
+        const token = jwt.sign(payload, secret, { expiresIn: '7d' });
+        console.log('Login: Generated JWT:', token);
 
         res.json({ user: { id: user.rows[0].id, username: user.rows[0].username }, token });
     } catch (err) {
-        console.error(err);
+        console.error('Login error:', err.message);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 };

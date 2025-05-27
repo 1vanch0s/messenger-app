@@ -11,7 +11,11 @@ const io = socketIo(server, {
     cors: {
         origin: 'http://localhost:3000',
         methods: ['GET', 'POST'],
+        credentials: true,
     },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'], // Явно указываем транспорты
 });
 
 app.use(cors());
@@ -30,14 +34,19 @@ app.use('/api/messages', require('./src/routes/messages'));
 io.use(async (socket, next) => {
     try {
         const token = socket.handshake.auth.token;
+        console.log('WebSocket Auth attempt:', { token: token ? 'Provided' : 'Missing', headers: socket.handshake.headers });
         if (!token) {
-            return next(new Error('Токен не предоставлен'));
+            const err = new Error('Токен не предоставлен');
+            console.error('Auth error:', err.message);
+            return next(err);
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
         socket.user = decoded;
+        console.log('WebSocket User authenticated:', decoded.userId);
         next();
     } catch (err) {
-        next(new Error('Неверный токен'));
+        console.error('WebSocket Auth error:', err.message, { token: socket.handshake.auth.token });
+        next(new Error(err.message === 'jwt expired' ? 'Токен истёк' : 'Неверный токен'));
     }
 });
 
