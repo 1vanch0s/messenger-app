@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import io from 'socket.io-client';
 import axios from 'axios';
 
@@ -9,10 +10,9 @@ const socket = io('http://localhost:5000', {
 });
 
 function Chat() {
+    const { chatId } = useParams();
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
-    const [chatId] = useState('1'); // Тестовый chatId
-    const userId = localStorage.getItem('userId');
 
     useEffect(() => {
         // Проверяем подключение
@@ -45,7 +45,7 @@ function Chat() {
 
     return (
         <div>
-            <h2>Чат</h2>
+            <h2>Чат {chatId}</h2>
             <div style={{ border: '1px solid #ccc', padding: '10px', height: '300px', overflowY: 'scroll' }}>
                 {messages.map((msg) => (
                     <p key={msg.id}>

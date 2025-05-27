@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-ro
 import Login from './components/Login';
 import Register from './components/Register';
 import Chat from './components/Chat';
+import ChatList from './components/ChatList';
 
 function App() {
     const isAuthenticated = !!localStorage.getItem('token');
@@ -10,7 +11,7 @@ function App() {
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('userId');
-        window.location.href = '/login'; // Перенаправляем на логин
+        window.location.href = '/login';
     };
 
     return (
@@ -26,8 +27,8 @@ function App() {
                     </Link>
                     {isAuthenticated && (
                         <>
-                            <Link to="/chat" style={{ margin: '10px' }}>
-                                <button>Чат</button>
+                            <Link to="/chats" style={{ margin: '10px' }}>
+                                <button>Мои чаты</button>
                             </Link>
                             <button onClick={handleLogout} style={{ margin: '10px' }}>
                                 Выход
@@ -40,7 +41,11 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route
-                        path="/chat"
+                        path="/chats"
+                        element={isAuthenticated ? <ChatList /> : <Navigate to="/login" />}
+                    />
+                    <Route
+                        path="/chat/:chatId"
                         element={isAuthenticated ? <Chat /> : <Navigate to="/login" />}
                     />
                 </Routes>

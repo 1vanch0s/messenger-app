@@ -3,9 +3,12 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 const authRoutes = require('./src/routes/auth');
+const chatRoutes = require('./src/routes/chats');
 const pool = require('./src/config/db');
 const jwt = require('jsonwebtoken');
+const usersRoutes = require('./src/routes/users');
 require('dotenv').config();
+
 
 const app = express();
 const server = http.createServer(app);
@@ -18,9 +21,12 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+app.set('io', io);
 
 // Подключаем маршруты
 app.use('/api/auth', authRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/users', usersRoutes);
 
 // Тестовый маршрут
 app.get('/', (req, res) => {
@@ -35,7 +41,7 @@ io.use((socket, next) => {
     }
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        socket.user = decoded; // Сохраняем userId в объекте socket
+        socket.user = decoded;
         next();
     } catch (err) {
         next(new Error('Недействительный токен'));
@@ -54,16 +60,13 @@ io.on('connection', (socket) => {
     // Отправка сообщения
     socket.on('sendMessage', async ({ chatId, content }) => {
         try {
-            // Сохраняем сообщение в базе
             const newMessage = await pool.query(
                 'INSERT INTO messages (chat_id, user_id, content) VALUES ($1, $2, $3) RETURNING *',
                 [chatId, socket.user.userId, content]
             );
 
-            // Получаем username пользователя
             const user = await pool.query('SELECT username FROM users WHERE id = $1', [socket.user.userId]);
 
-            // Отправляем сообщение всем в чате
             io.to(chatId).emit('message', {
                 id: newMessage.rows[0].id,
                 chatId,
@@ -76,6 +79,21 @@ io.on('connection', (socket) => {
             console.error('Error saving message:', err);
         }
     });
+
+    // Уведомление о новом чате
+    socket.on('newChat', async ({ chatId, userIds }) => {
+        try {
+            const chat = await pool.query('SELECT * FROM chats WHERE id = $1', [chatId]);
+            for (const userId of userIds) {
+                socket.to(`user:${userId}`).emit('newChat', chat.rows[0]);
+            }
+        } catch (err) {
+            console.error('Error notifying new chat:', err);
+        }
+    });
+
+    // Подключаем пользователя к его персональной комнате
+    socket.join(`user:${socket.user.userId}`);
 
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
