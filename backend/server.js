@@ -59,27 +59,28 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sendMessage', async ({ chatId, content }) => {
-        try {
-            const newMessage = await pool.query(
-                'INSERT INTO messages (chat_id, user_id, content) VALUES ($1, $2, $3) RETURNING *',
-                [chatId, socket.user.userId, content]
-            );
+    try {
+        const newMessage = await pool.query(
+            'INSERT INTO messages (chat_id, user_id, content) VALUES ($1, $2, $3) RETURNING *',
+            [chatId, socket.user.userId, content]
+        );
 
-            const user = await pool.query('SELECT username FROM users WHERE id = $1', [socket.user.userId]);
+        const user = await pool.query('SELECT username FROM users WHERE id = $1', [socket.user.userId]);
 
-            io.to(chatId).emit('message', {
-                id: newMessage.rows[0].id,
-                chatId,
-                userId: socket.user.userId,
-                username: user.rows[0].username,
-                content,
-                created_at: newMessage.rows[0].created_at,
-            });
-        } catch (err) {
-            console.error('Error saving message:', err);
-        }
-    });
-
+        io.to(chatId).emit('message', {
+            id: newMessage.rows[0].id,
+            chat_id: chatId,
+            user_id: socket.user.userId,
+            username: user.rows[0].username,
+            content,
+            created_at: newMessage.rows[0].created_at,
+            file_url: null,
+            file_type: null,
+        });
+    } catch (err) {
+        console.error('Error saving message:', err);
+    }
+});
     socket.on('newChat', async ({ chatId, userIds }) => {
         try {
             const chat = await pool.query('SELECT * FROM chats WHERE id = $1', [chatId]);

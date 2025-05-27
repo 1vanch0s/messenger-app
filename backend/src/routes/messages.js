@@ -56,16 +56,16 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
         const io = req.app.get('io');
         io.to(chatId).emit('message', {
             id: newMessage.rows[0].id,
-            chatId,
-            userId,
+            chat_id: chatId,
+            user_id: userId,
             username: user.rows[0].username,
             content: '',
-            fileUrl,
-            fileType,
             created_at: newMessage.rows[0].created_at,
+            file_url: fileUrl,
+            file_type: fileType,
         });
 
-        res.json({ message: 'Файл загружен', fileUrl });
+        res.json({ message: 'Файл загружен', file_url: fileUrl });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Ошибка сервера' });
@@ -97,6 +97,8 @@ router.get('/history/:chatId', authMiddleware, async (req, res) => {
              ORDER BY m.created_at ASC`,
             [chatId]
         );
+
+        console.log('History response:', JSON.stringify(messages.rows, null, 2)); // Логируем ответ
 
         res.json(messages.rows);
     } catch (err) {

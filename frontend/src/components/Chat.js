@@ -23,6 +23,7 @@ function Chat() {
                 const res = await axios.get(`http://localhost:5000/api/messages/history/${chatId}`, {
                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
                 });
+                console.log('Fetched history:', res.data); // Логируем данные
                 setMessages(res.data);
             } catch (err) {
                 console.error('Error fetching history:', err);
@@ -40,6 +41,7 @@ function Chat() {
         socket.emit('joinChat', chatId);
 
         socket.on('message', (newMessage) => {
+            console.log('New WebSocket message:', newMessage); // Логируем сообщение
             setMessages((prev) => [...prev, newMessage]);
         });
 
@@ -82,7 +84,6 @@ function Chat() {
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!searchQuery.trim()) {
-            // Если поиск пустой, загружаем полную историю
             const res = await axios.get(`http://localhost:5000/api/messages/history/${chatId}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
             });
@@ -120,18 +121,18 @@ function Chat() {
                 {messages.map((msg) => (
                     <div key={msg.id}>
                         <strong>{msg.username}:</strong>{' '}
-                        {msg.content && <span>{msg.content}</span>}
-                        {msg.fileUrl && (
+                        {msg.content && msg.content.trim() && <span>{msg.content}</span>}
+                        {msg.file_url && (
                             <div>
-                                {msg.fileType === 'image' ? (
+                                {msg.file_type === 'image' ? (
                                     <img
-                                        src={`http://localhost:5000${msg.fileUrl}`}
+                                        src={`http://localhost:5000${msg.file_url}`}
                                         alt="media"
                                         style={{ maxWidth: '200px', maxHeight: '200px' }}
                                     />
                                 ) : (
                                     <video
-                                        src={`http://localhost:5000${msg.fileUrl}`}
+                                        src={`http://localhost:5000${msg.file_url}`}
                                         controls
                                         style={{ maxWidth: '200px', maxHeight: '200px' }}
                                     />
