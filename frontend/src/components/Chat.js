@@ -14,8 +14,24 @@ function Chat() {
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
     const [file, setFile] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
+        // Загружаем историю сообщений
+        const fetchHistory = async () => {
+            try {
+                const res = await axios.get(`http://localhost:5000/api/messages/history/${chatId}`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                });
+                setMessages(res.data);
+            } catch (err) {
+                console.error('Error fetching history:', err);
+                alert('Ошибка загрузки истории');
+            }
+        };
+
+        fetchHistory();
+
         socket.on('connect_error', (err) => {
             console.error('Connection error:', err.message);
             alert('Ошибка подключения: ' + err.message);
@@ -63,9 +79,43 @@ function Chat() {
         }
     };
 
+    const handleSearch = async (e) => {
+        e.preventDefault();
+        if (!searchQuery.trim()) {
+            // Если поиск пустой, загружаем полную историю
+            const res = await axios.get(`http://localhost:5000/api/messages/history/${chatId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            });
+            setMessages(res.data);
+            return;
+        }
+
+        try {
+            const res = await axios.get(
+                `http://localhost:5000/api/messages/search/${chatId}?query=${encodeURIComponent(searchQuery)}`,
+                {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                }
+            );
+            setMessages(res.data);
+        } catch (err) {
+            console.error('Error searching messages:', err);
+            alert('Ошибка поиска');
+        }
+    };
+
     return (
         <div>
             <h2>Чат {chatId}</h2>
+            <form onSubmit={handleSearch}>
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Поиск сообщений"
+                />
+                <button type="submit">Найти</button>
+            </form>
             <div style={{ border: '1px solid #ccc', padding: '10px', height: '300px', overflowY: 'scroll' }}>
                 {messages.map((msg) => (
                     <div key={msg.id}>
