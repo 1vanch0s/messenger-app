@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const WebSocket = require('ws');
+const authRoutes = require('./src/routes/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,6 +10,9 @@ const wss = new WebSocket.Server({ server });
 
 app.use(cors());
 app.use(express.json());
+
+// Подключаем маршруты
+app.use('/api/auth', authRoutes);
 
 // Тестовый маршрут
 app.get('/', (req, res) => {
