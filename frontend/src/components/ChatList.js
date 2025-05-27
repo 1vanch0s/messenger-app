@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import io from 'socket.io-client';
+import '../styles/ChatList.css';
 
 const socket = io('http://localhost:5000', {
     auth: {
@@ -86,60 +87,69 @@ function ChatList() {
         }
     };
 
+    const toggleMember = (userId) => {
+        setMemberIds((prev) =>
+            prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+        );
+    };
+
     return (
-        <div>
-            <h2>Мои чаты</h2>
-            <ul>
+        <div className="chat-list">
+            <h2>My Chats</h2>
+            <ul className="chat-list-items">
                 {chats.map((chat) => (
-                    <li key={chat.id}>
-                        <Link to={`/chat/${chat.id}`}>
-                            {chat.name || (chat.is_group ? `Чат ${chat.id}` : `Личный чат ${chat.id}`)}
+                    <li key={chat.id} className="chat-list-item">
+                        <Link to={`/chat/${chat.id}`} className="chat-link">
+                            {chat.name || (chat.is_group ? `Group Chat ${chat.id}` : `Private Chat ${chat.id}`)}
                         </Link>
                     </li>
                 ))}
             </ul>
-            <h3>Создать групповой чат</h3>
-            <form onSubmit={handleCreateGroupChat}>
-                <input
-                    type="text"
-                    value={newChatName}
-                    onChange={(e) => setNewChatName(e.target.value)}
-                    placeholder="Название чата"
-                    required
-                />
-                <select
-                    multiple
-                    value={memberIds}
-                    onChange={(e) =>
-                        setMemberIds(
-                            Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
-                        )
-                    }
-                >
-                    {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                            {user.username}
-                        </option>
-                    ))}
-                </select>
-                <button type="submit">Создать</button>
-            </form>
-            <h3>Написать личное сообщение</h3>
-            <form onSubmit={handleCreatePrivateChat}>
-                <select
-                    value={recipientId}
-                    onChange={(e) => setRecipientId(e.target.value)}
-                    required
-                >
-                    <option value="">Выберите пользователя</option>
-                    {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                            {user.username}
-                        </option>
-                    ))}
-                </select>
-                <button type="submit">Начать чат</button>
-            </form>
+            <div className="chat-form">
+                <h3>Create Group Chat</h3>
+                <form onSubmit={handleCreateGroupChat}>
+                    <input
+                        type="text"
+                        value={newChatName}
+                        onChange={(e) => setNewChatName(e.target.value)}
+                        placeholder="Chat name"
+                        required
+                        className="chat-input"
+                    />
+                    <div className="user-checkboxes">
+                        {users.map((user) => (
+                            <label key={user.id} className="user-checkbox">
+                                <input
+                                    type="checkbox"
+                                    checked={memberIds.includes(user.id)}
+                                    onChange={() => toggleMember(user.id)}
+                                />
+                                {user.username}
+                            </label>
+                        ))}
+                    </div>
+                    <button type="submit" className="chat-button">Create</button>
+                </form>
+            </div>
+            <div className="chat-form">
+                <h3>Start Private Chat</h3>
+                <form onSubmit={handleCreatePrivateChat}>
+                    <select
+                        value={recipientId}
+                        onChange={(e) => setRecipientId(e.target.value)}
+                        required
+                        className="chat-select"
+                    >
+                        <option value="">Select user</option>
+                        {users.map((user) => (
+                            <option key={user.id} value={user.id}>
+                                {user.username}
+                            </option>
+                        ))}
+                    </select>
+                    <button type="submit" className="chat-button">Start Chat</button>
+                </form>
+            </div>
         </div>
     );
 }
