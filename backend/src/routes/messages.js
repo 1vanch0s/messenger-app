@@ -227,6 +227,43 @@ router.post('/react', authMiddleware, async (req, res) => {
         console.error(err);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
+
+    
+});
+
+// Отметить сообщения как просмотренные
+router.post('/view', authMiddleware, async (req, res) => {
+    const { chatId, lastMessageId } = req.body;
+    const userId = req.user.userId;
+
+    if (!chatId || !lastMessageId) {
+        return res.status(400).json({ error: 'chatId и lastMessageId обязательны' });
+    }
+
+    try {
+        // Проверяем, является ли пользователь участником чата
+        const isMember = await pool.query(
+            'SELECT 1 FROM chat_members WHERE chat_id = $1 AND user_id = $2',
+            [chatId, userId]
+        );
+        if (!isMember.rows.length) {
+            return res.status(403).json({ error: 'Доступ к чату запрещён' });
+        }
+
+        // Обновляем или создаём запись в message_views
+        await pool.query(
+            `INSERT INTO message_views (chat_id, user_id, last_viewed_message_id)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (chat_id, user_id)
+             DO UPDATE SET last_viewed_message_id = EXCLUDED.last_viewed_message_id`,
+            [chatId, userId, lastMessageId]
+        );
+
+        res.json({ message: 'Просмотры обновлены' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
 });
 
 module.exports = router;

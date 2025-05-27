@@ -16,6 +16,7 @@ function ChatList() {
     const [memberIds, setMemberIds] = useState([]);
     const [recipientId, setRecipientId] = useState('');
     const [users, setUsers] = useState([]);
+    const [notifications, setNotifications] = useState([]);
 
     useEffect(() => {
         const fetchChats = async () => {
@@ -47,8 +48,22 @@ function ChatList() {
             setChats((prev) => [...prev, newChat]);
         });
 
+        socket.on('notification', ({ chatId, chatName }) => {
+            setNotifications((prev) => [
+                ...prev,
+                { id: Date.now(), chatId, chatName, timestamp: new Date().toLocaleTimeString() },
+            ]);
+            // Обновляем счётчик непрочитанных
+            setChats((prev) =>
+                prev.map((chat) =>
+                    chat.id === parseInt(chatId) ? { ...chat, unread_count: (chat.unread_count || 0) + 1 } : chat
+                )
+            );
+        });
+
         return () => {
             socket.off('newChat');
+            socket.off('notification');
         };
     }, []);
 
@@ -93,6 +108,10 @@ function ChatList() {
         );
     };
 
+    const dismissNotification = (id) => {
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+    };
+
     return (
         <div className="chat-list">
             <h2>My Chats</h2>
@@ -101,6 +120,9 @@ function ChatList() {
                     <li key={chat.id} className="chat-list-item">
                         <Link to={`/chat/${chat.id}`} className="chat-link">
                             {chat.name || (chat.is_group ? `Group Chat ${chat.id}` : `Private Chat ${chat.id}`)}
+                            {chat.unread_count > 0 && (
+                                <span className="unread-count">{chat.unread_count}</span>
+                            )}
                         </Link>
                     </li>
                 ))}
@@ -128,7 +150,9 @@ function ChatList() {
                             </label>
                         ))}
                     </div>
-                    <button type="submit" className="chat-button">Create</button>
+                    <button type="submit" className="chat-button">
+                        Create
+                    </button>
                 </form>
             </div>
             <div className="chat-form">
@@ -147,8 +171,26 @@ function ChatList() {
                             </option>
                         ))}
                     </select>
-                    <button type="submit" className="chat-button">Start Chat</button>
+                    <button type="submit" className="chat-button">
+                        Start Chat
+                    </button>
                 </form>
+            </div>
+            <div className="notifications">
+                {notifications.map((n) => (
+                    <div key={n.id} className="notification">
+                        <span>
+                            New message in{' '}
+                            <Link to={`/chat/${n.chatId}`}>{n.chatName}</Link> at {n.timestamp}
+                        </span>
+                        <button
+                            onClick={() => dismissNotification(n.id)}
+                            className="notification-dismiss"
+                        >
+                            ×
+                        </button>
+                    </div>
+                ))}
             </div>
         </div>
     );

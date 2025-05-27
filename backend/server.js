@@ -1,18 +1,13 @@
 const express = require('express');
-const cors = require('cors');
 const http = require('http');
-const { Server } = require('socket.io');
-const authRoutes = require('./src/routes/auth');
-const chatRoutes = require('./src/routes/chats');
-const usersRoutes = require('./src/routes/users');
-const messagesRoutes = require('./src/routes/messages');
-const pool = require('./src/config/db');
+const socketIo = require('socket.io');
+const cors = require('cors');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+const pool = require('./src/config/db');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
+const io = socketIo(server, {
     cors: {
         origin: 'http://localhost:3000',
         methods: ['GET', 'POST'],
@@ -21,37 +16,33 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads')); // Раздаём файлы из папки uploads
+app.use('/uploads', express.static('uploads'));
+
+// Middleware для передачи io в маршруты
 app.set('io', io);
 
-// Подключаем маршруты
-app.use('/api/auth', authRoutes);
-app.use('/api/chats', chatRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/messages', messagesRoutes);
+// Маршруты
+app.use('/api/users', require('./src/routes/users'));
+app.use('/api/chats', require('./src/routes/chats'));
+app.use('/api/messages', require('./src/routes/messages'));
 
-// Тестовый маршрут
-app.get('/', (req, res) => {
-    res.send('Messenger Backend');
-});
-
-// WebSocket события с проверкой токена
-io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) {
-        return next(new Error('Токен не предоставлен'));
-    }
+// WebSocket
+io.use(async (socket, next) => {
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const token = socket.handshake.auth.token;
+        if (!token) {
+            return next(new Error('Токен не предоставлен'));
+        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
         socket.user = decoded;
         next();
     } catch (err) {
-        next(new Error('Недействительный токен'));
+        next(new Error('Неверный токен'));
     }
 });
 
 io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id, 'User:', socket.user.userId);
+    console.log('User connected:', socket.user.userId);
 
     socket.on('joinChat', (chatId) => {
         socket.join(chatId);
@@ -67,7 +58,9 @@ io.on('connection', (socket) => {
 
         const user = await pool.query('SELECT username FROM users WHERE id = $1', [socket.user.userId]);
 
-        io.to(chatId).emit('message', {
+        const chat = await pool.query('SELECT name, is_group FROM chats WHERE id = $1', [chatId]);
+
+        const message = {
             id: newMessage.rows[0].id,
             chat_id: chatId,
             user_id: socket.user.userId,
@@ -77,26 +70,35 @@ io.on('connection', (socket) => {
             file_url: null,
             file_type: null,
             reactions: [],
-        });
+        };
+
+        // Отправляем сообщение
+        io.to(chatId).emit('message', message);
+
+        // Отправляем уведомление всем участникам чата (кроме отправителя)
+        const members = await pool.query(
+            'SELECT user_id FROM chat_members WHERE chat_id = $1 AND user_id != $2',
+            [chatId, socket.user.userId]
+        );
+        for (const member of members.rows) {
+            io.to(`user:${member.user_id}`).emit('notification', {
+                chatId,
+                chatName: chat.rows[0].name || (chat.rows[0].is_group ? `Group Chat ${chatId}` : `Private Chat ${chatId}`),
+            });
+        }
     } catch (err) {
         console.error('Error saving message:', err);
     }
 });
-    socket.on('newChat', async ({ chatId, userIds }) => {
-        try {
-            const chat = await pool.query('SELECT * FROM chats WHERE id = $1', [chatId]);
-            for (const userId of userIds) {
-                socket.to(`user:${userId}`).emit('newChat', chat.rows[0]);
-            }
-        } catch (err) {
-            console.error('Error notifying new chat:', err);
-        }
-    });
 
-    socket.join(`user:${socket.user.userId}`);
+socket.on('joinChat', (chatId) => {
+    socket.join(chatId);
+    socket.join(`user:${socket.user.userId}`); // Подписываемся на уведомления для пользователя
+    console.log(`User ${socket.user.userId} joined chat ${chatId}`);
+});
 
     socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
+        console.log('User disconnected:', socket.user.userId);
     });
 });
 
