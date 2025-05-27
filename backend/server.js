@@ -4,11 +4,11 @@ const http = require('http');
 const { Server } = require('socket.io');
 const authRoutes = require('./src/routes/auth');
 const chatRoutes = require('./src/routes/chats');
+const usersRoutes = require('./src/routes/users');
+const messagesRoutes = require('./src/routes/messages');
 const pool = require('./src/config/db');
 const jwt = require('jsonwebtoken');
-const usersRoutes = require('./src/routes/users');
 require('dotenv').config();
-
 
 const app = express();
 const server = http.createServer(app);
@@ -21,12 +21,14 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static('uploads')); // Раздаём файлы из папки uploads
 app.set('io', io);
 
 // Подключаем маршруты
 app.use('/api/auth', authRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/messages', messagesRoutes);
 
 // Тестовый маршрут
 app.get('/', (req, res) => {
@@ -51,13 +53,11 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id, 'User:', socket.user.userId);
 
-    // Присоединение к чату
     socket.on('joinChat', (chatId) => {
         socket.join(chatId);
         console.log(`User ${socket.user.userId} joined chat ${chatId}`);
     });
 
-    // Отправка сообщения
     socket.on('sendMessage', async ({ chatId, content }) => {
         try {
             const newMessage = await pool.query(
@@ -80,7 +80,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Уведомление о новом чате
     socket.on('newChat', async ({ chatId, userIds }) => {
         try {
             const chat = await pool.query('SELECT * FROM chats WHERE id = $1', [chatId]);
@@ -92,7 +91,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Подключаем пользователя к его персональной комнате
     socket.join(`user:${socket.user.userId}`);
 
     socket.on('disconnect', () => {
