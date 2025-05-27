@@ -13,7 +13,8 @@ function Register() {
                 username,
                 password,
             });
-            localStorage.setItem('token', res.data.token); // Сохраняем токен
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('userId', res.data.user.id); // Сохраняем userId
             alert('Регистрация успешна!');
         } catch (err) {
             setError(err.response?.data?.error || 'Ошибка регистрации');
